@@ -15,10 +15,7 @@ var SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1guUdLTpXSMxvEwhrf
     LASTFM_API_KEY = PropertiesService.getScriptProperties().getProperty("LASTFM_API_KEY");
 
 var dateToCSVDate = function (d) {
-    // Note how I force the date to be stored as a string, to avoid Google
-    // spreadsheet interpreting it and perhaps change its format when it is
-    // exported.
-    return "'" + d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2) + " " + 
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2) + " " + 
         ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2) + ":" + ("0" + d.getSeconds()).slice(-2); 
 
 }
@@ -31,6 +28,7 @@ var garbageCollect = function (callback) {
         availableCells -= sheet.getLastColumn() * sheet.getLastRow();
     });
     if (availableCells < 0) {
+        Logger.log("Deleting rows 2 to " + (1 + minRowNoToClean));
         var minRowNoToClean = Math.ceil(-availableCells / sheetToClean.getLastColumn());
         sheetToClean.deleteRows(2, 1 + minRowNoToClean);
     }
@@ -51,7 +49,7 @@ var fetch = function () {
         track.image = _.find(track.image, function (image) { return image.size === "extralarge"; })["#text"];
         return track;        
     });
-    // sort by date
+    // sort by date, ascending
     return tracks.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
 }
 
@@ -62,7 +60,10 @@ var fetchAndStoreActual = function (callback) {
         datesToWrite = data.map(function (track) { return dateToCSVDate(track.date); }),
         previousDates = _.flatten(sheet.getRange("R2C1:R" + Math.max(2, sheet.getLastRow()) + "C1").getValues()),
         firstDateToReplace = _.find(previousDates, function (previousDate) { return _.contains(datesToWrite, previousDate); }), 
-        firstRowToReplace = 3 + previousDates.indexOf(firstDateToReplace);
+          firstRowToReplace = 2 + (firstDateToReplace ? previousDates.indexOf(firstDateToReplace) : 0);
+    //Logger.log("datesToWrite is " + datesToWrite);
+    //Logger.log("previousDates is " + previousDates);
+    Logger.log("The first date to replace is " + firstDateToReplace + " that is on row " + firstRowToReplace);
     sheet.getRange(firstRowToReplace + ":" + (firstRowToReplace + datesToWrite.length - 1)).setValues(data.map(function (track) {
         return [ dateToCSVDate(track.date), JSON.stringify(track) ];
     })); 
